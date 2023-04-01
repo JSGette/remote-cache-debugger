@@ -43,13 +43,23 @@ fun mergeSpawnExecs(pathA: String, pathB: String) {
             )
         }
     }
-    mergedSpawnExecs.forEach {
-        println("=============================")
-        println("Listed Outputs {")
-        it.value.listedOutputs.forEach { listedOutput -> println("  ${listedOutput}") }
-        println("}")
-        it.value.printEnvVarsDiff()
-        it.value.printInputsDiff()
+    File("D:/output.txt").printWriter().use { out ->
+        mergedSpawnExecs.forEach {
+
+            out.println("=============================")
+            out.println("Listed Outputs {")
+            it.value.listedOutputs.forEach { listedOutput -> out.println("  $listedOutput") }
+            out.println("}")
+            it.value.printEnvVarsDiff(out)
+            it.value.printInputsDiff(out)
+
+            /* println("=============================")
+             println("Listed Outputs {")
+             it.value.listedOutputs.forEach { listedOutput -> println("  ${listedOutput}") }
+             println("}")
+             it.value.printEnvVarsDiff()
+             it.value.printInputsDiff()*/
+        }
     }
 }
 

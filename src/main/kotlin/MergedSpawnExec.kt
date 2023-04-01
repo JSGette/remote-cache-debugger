@@ -1,4 +1,5 @@
 import com.google.devtools.build.lib.exec.Protos.Digest
+import java.io.PrintWriter
 
 data class MergedSpawnExec(
     val listedOutputs: List<String>,
@@ -22,26 +23,26 @@ data class MergedSpawnExec(
         presentInBothExecs = _presentInBothExecs
     }
 
-    fun <T> printDiff(map: Map<String, Pair<T, T>>) {
+    fun <T> printDiff(map: Map<String, Pair<T, T>>, out: PrintWriter) {
         map.map {
             """   ${it.key} {
             |               PREVIOUS VALUE: ${it.value.first}
             |                    NEW VALUE: ${it.value.second}
             |        }
         """.trimMargin()
-        }.forEach { println(it) }
+        }.forEach { out.println(it) }
     }
 
-    fun printEnvVarsDiff() {
-        println("Environment Variables {")
-        printDiff(calculateDiffEnv())
-        println("}")
+    fun printEnvVarsDiff(out: PrintWriter) {
+        out.println("Environment Variables {")
+        printDiff(calculateDiffEnv(), out)
+        out.println("}")
     }
 
-    fun printInputsDiff() {
-        println("Inputs {")
-        printDiff(calculateDiffInputs())
-        println("}")
+    fun printInputsDiff(out: PrintWriter) {
+        out.println("Inputs {")
+        printDiff(calculateDiffInputs(), out)
+        out.println("}")
     }
 
     fun calculateDiffEnv(): Map<String, Pair<String, String>> {
