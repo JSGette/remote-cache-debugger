@@ -35,8 +35,8 @@ fun mergeSpawnExecs(pathA: String, pathB: String) {
         } else {
             mergedSpawnExecs[spawnExec.first] = MergedSpawnExec(
                 spawnExec.second.listedOutputsList,
-                null,
-                null,
+                HashMap(),
+                HashMap(),
                 spawnExec.second.environmentVariablesList.associate { it.name to it.value },
                 spawnExec.second.inputsList.associate { it.path to it.digest },
                 false
@@ -44,10 +44,19 @@ fun mergeSpawnExecs(pathA: String, pathB: String) {
         }
     }
 
-    mergedSpawnExecs.forEach { key, value ->
-        println("============================")
-        println(key)
-        println(value)
+    mergedSpawnExecs.forEach {
+        println("=============================")
+        println(it.value.listedOutputs)
+        it.value.calculateDiffEnv().forEach {
+            println("ENVVAR: ${it.key}")
+            println("FIRST RUN: ${it.value.first}")
+            println("SECOND RUN: ${it.value.second}")
+        }
+        println(it.value.calculateDiffInputs().size)
+        it.value.calculateDiffInputs().forEach {
+            println(it.value.first)
+            println(it.value.second)
+        }
     }
 }
 
