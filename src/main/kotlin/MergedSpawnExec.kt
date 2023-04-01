@@ -22,6 +22,28 @@ data class MergedSpawnExec(
         presentInBothExecs = _presentInBothExecs
     }
 
+    fun <T> printDiff(map: Map<String, Pair<T, T>>) {
+        map.map {
+            """   ${it.key} {
+            |               PREVIOUS VALUE: ${it.value.first}
+            |                    NEW VALUE: ${it.value.second}
+            |        }
+        """.trimMargin()
+        }.forEach { println(it) }
+    }
+
+    fun printEnvVarsDiff() {
+        println("Environment Variables {")
+        printDiff(calculateDiffEnv())
+        println("}")
+    }
+
+    fun printInputsDiff() {
+        println("Inputs {")
+        printDiff(calculateDiffInputs())
+        println("}")
+    }
+
     fun calculateDiffEnv(): Map<String, Pair<String, String>> {
         return calculateDiff(aEnvVars, bEnvVars)
     }

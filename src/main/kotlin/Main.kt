@@ -43,20 +43,13 @@ fun mergeSpawnExecs(pathA: String, pathB: String) {
             )
         }
     }
-
     mergedSpawnExecs.forEach {
         println("=============================")
-        println(it.value.listedOutputs)
-        it.value.calculateDiffEnv().forEach {
-            println("ENVVAR: ${it.key}")
-            println("FIRST RUN: ${it.value.first}")
-            println("SECOND RUN: ${it.value.second}")
-        }
-        println(it.value.calculateDiffInputs().size)
-        it.value.calculateDiffInputs().forEach {
-            println(it.value.first)
-            println(it.value.second)
-        }
+        println("Listed Outputs {")
+        it.value.listedOutputs.forEach { listedOutput -> println("  ${listedOutput}") }
+        println("}")
+        it.value.printEnvVarsDiff()
+        it.value.printInputsDiff()
     }
 }
 
