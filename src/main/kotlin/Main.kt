@@ -8,7 +8,6 @@ import kotlinx.cli.required
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
-import java.io.OutputStream
 import java.security.MessageDigest
 
 val sha256 = MessageDigest.getInstance("SHA-256")
@@ -117,8 +116,7 @@ fun calculateExecHash(input: String): String {
 }
 
 fun <T> calculateDiff(aMap: Map<String, T>, bMap: Map<String, T>): Map<String, Pair<T, T>> {
-    return aMap.filterKeys { bMap.containsKey(it) }.filter { (key, value) ->
+    return aMap.filterKeys { bMap.containsKey(it) }.filter { (key, _) ->
         aMap[key] != bMap[key]
-    }.map { Triple(it.key, aMap[it.key], bMap[it.key]) }.associate { it.first to Pair(it.second!!, it.third!!) }
-        .filter { it.value.toList().isNotEmpty() }
+    }.mapValues { Pair(aMap[it.key]!!, bMap[it.key]!!) }
 }
