@@ -25,38 +25,44 @@ fun mergeSpawnExecs(pathA: String, pathB: String) {
     aExecCounter = aSpawnExecs.size
 
     ins = File(pathB).inputStream()
-    while (ins.available() > 0) {
-        val spawnExec = getNextSpawnExec(ins)
-        bExecCounter++
-        if (!spawnExec.second.remoteCacheHit) {
-            val aEnvVars: Map<String, String> =
-                aSpawnExecs[spawnExec.first]!!.environmentVariablesList.associate { it.name to it.value }
-            val bEnvVars: Map<String, String> =
-                spawnExec.second.environmentVariablesList.associate { it.name to it.value }
-            val mergedEnvVars =
-                calculateDiff(aEnvVars, bEnvVars).map {
-                    ExecutionEnvironmentVariables.newBuilder().setName(it.key).setAValue(it.value.first)
-                        .setBValue(it.value.second).build()
+    File("D:/output.log").outputStream().use { outputStream ->
+        File("D:/output.txt").printWriter().use { out ->
+            while (ins.available() > 0) {
+                val spawnExec = getNextSpawnExec(ins)
+                bExecCounter++
+                if (!spawnExec.second.remoteCacheHit) {
+                    val aEnvVars: Map<String, String> =
+                        aSpawnExecs[spawnExec.first]!!.environmentVariablesList.associate { it.name to it.value }
+                    val bEnvVars: Map<String, String> =
+                        spawnExec.second.environmentVariablesList.associate { it.name to it.value }
+                    val mergedEnvVars =
+                        calculateDiff(aEnvVars, bEnvVars).map {
+                            ExecutionEnvironmentVariables.newBuilder().setName(it.key).setAValue(it.value.first)
+                                .setBValue(it.value.second).build()
+                        }
+                    val aInputs = aSpawnExecs[spawnExec.first]!!.inputsList.associate { it.path to it.digest }
+                    val bInputs = spawnExec.second.inputsList.associate { it.path to it.digest }
+                    val mergedInputs = calculateDiff(aInputs, bInputs).map {
+                        ExecutionInputs.newBuilder().setPath(it.key).setAHash(it.value.first.hash)
+                            .setBHash(it.value.second.hash).build()
+                    }
+                    var mergedSpawnExec =
+                        Protos.MergedSpawnExec.newBuilder().setExecutionHash(spawnExec.first)
+                            .addAllListedOutputs(spawnExec.second.listedOutputsList)
+                            .addAllEnvVars(mergedEnvVars.toMutableList())
+                            .addAllInputs(mergedInputs.toMutableList())
+                            .build()
+                    println(mergedSpawnExec.toString())
+                    out.println(mergedSpawnExec.toString())
+                    mergedSpawnExec.writeDelimitedTo(outputStream)
+                } else {
+                    cacheHits++
                 }
-            val aInputs = aSpawnExecs[spawnExec.first]!!.inputsList.associate { it.path to it.digest }
-            val bInputs = spawnExec.second.inputsList.associate { it.path to it.digest }
-            val mergedInputs = calculateDiff(aInputs, bInputs).map {
-                ExecutionInputs.newBuilder().setPath(it.key).setAHash(it.value.first.hash)
-                    .setBHash(it.value.second.hash).build()
             }
-            var mergedSpawnExec =
-                Protos.MergedSpawnExec.newBuilder().setExecutionHash(spawnExec.first)
-                    .addAllListedOutputs(spawnExec.second.listedOutputsList)
-                    .addAllEnvVars(mergedEnvVars.toMutableList())
-                    .addAllInputs(mergedInputs.toMutableList())
-            println(mergedSpawnExec.toString())
-
-        } else {
-            cacheHits++
         }
     }
     if (aExecCounter != bExecCounter) {
-        throw UnsupportedOperationException("Number of executions isn't the same. Unsupported analysis!")
+        println("WARNING! Number of executions isn't the same across builds so results may be not correct!")
     }
     println("====================REPORT====================")
     println("Spawned Executions: ${aExecCounter}")
