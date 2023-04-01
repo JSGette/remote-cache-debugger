@@ -16,6 +16,7 @@ dependencies {
     implementation("com.google.protobuf:protobuf-kotlin:3.22.2")
     implementation("io.grpc:grpc-stub:1.53.0")
     implementation("io.grpc:grpc-protobuf:1.53.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.5")
     runtimeOnly("io.github.microutils:kotlin-logging-jvm:3.0.5")
 
     testImplementation(kotlin("test"))
