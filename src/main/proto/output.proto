@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package com.gette.debugger;
+
+option java_package = "com.gette.debugger";
+option java_outer_classname = "Protos";
+
+// Message that stores digests of the inputs with the same name
+// across executions but different hashes.
+// Based on [Digest][com.google.devtools.build.lib.exec.Digest]
+message ExecutionInputs {
+  // Path of an input file
+  string path = 1;
+  // Digest of an input during previous execution.
+  string a_hash = 2;
+  // Digest of an input during current execution
+  string b_hash = 3;
+}
+
+// Message that stores environment variable name and values
+// of both previous and current executions
+// Based on [EnvironmentVariable][com.google.devtools.build.lib.exec.EnvironmentVariable]
+message ExecutionEnvironmentVariables {
+  // Name of environment variable passed along to an execution
+  string name = 1;
+  // Value of environment variable passed during previous execution
+  string a_value = 2;
+  // Value of environment variable passed during current execution
+  string b_value = 3;
+}
+
+// If listed outputs produced during both executions
+// but inputs or environment variables are different
+// the difference will be stored in this message
+// See [SpawnExec][com.google.devtools.build.lib.exec.SpawnExec]
+message MergedSpawnExec {
+  // Calculated using SHA-256 and list listed_outputs
+  // transformed into a string
+  string execution_hash = 1;
+  // Outputs that should be produced
+  // by the execution
+  repeated string listed_outputs = 2;
+
+  repeated ExecutionEnvironmentVariables env_vars = 3;
+
+  repeated ExecutionInputs inputs = 4;
+}
