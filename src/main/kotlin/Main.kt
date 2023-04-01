@@ -3,6 +3,8 @@ import java.io.File
 import java.io.InputStream
 import java.security.MessageDigest
 
+val sha256 = MessageDigest.getInstance("SHA-256")
+
 fun main(args: Array<String>) {
     mergeSpawnExecs("D:/exec2.log", "D:/exec3.log")
 }
@@ -55,7 +57,7 @@ fun getNextSpawnExec(ins: InputStream): Pair<String, SpawnExec> {
     return Pair(execHash, spawnExec)
 }
 
-fun calculateExecHash(str: String): String {
-    return MessageDigest.getInstance("SHA-256").digest(str.toByteArray())
+fun calculateExecHash(input: String): String {
+    return sha256.digest(input.toByteArray())
         .fold("") { str, it -> str + "%02x".format(it) }
 }
