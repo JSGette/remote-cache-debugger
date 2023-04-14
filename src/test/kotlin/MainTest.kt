@@ -1,10 +1,14 @@
 import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
 
 class MainTest {
 
     @Test
     fun `Calculated SHA-256 hash is correct`() {
-
+        val testString = "testStringToCalculateSHA256Hash"
+        val expectedHash = "9794754e527299b8d3a53bdc825f63821da5841a6f7adfdac16570435231879e"
+        val calculatedHash = calculateExecHash(testString)
+        assertEquals(expectedHash, calculatedHash)
     }
 
     @Test
