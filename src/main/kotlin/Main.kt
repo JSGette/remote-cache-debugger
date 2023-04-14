@@ -1,6 +1,7 @@
 import com.gette.debugger.Protos
 import com.gette.debugger.Protos.ExecutionEnvironmentVariables
 import com.gette.debugger.Protos.ExecutionInputs
+import com.gette.debugger.Protos.MergedSpawnExec
 import com.google.devtools.build.lib.exec.Protos.SpawnExec
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
@@ -35,84 +36,59 @@ fun main(args: Array<String>) {
         description = "Path to save output log in text format"
     )
     parser.parse(args)
-    mergeSpawnExecs(first_exec_log, second_exec_log, output_binary_log, output_text_log)
+    val report = mergeSpawnExecs(first_exec_log, second_exec_log)
+    report.printDiff()
+    report.printReport()
 }
 
-/**
- * Reads execution log files in binary format and merges
- * environment variables and inputs that are different
- * between 2 logs
- *
- * @param pathA  path to first execution log
- * @param pathB  path to second execution log
- * @param outputBinaryLogPath  path to save output in binary format
- * please refer to output.proto located in src/main/proto/ for more information
- * @param outputTextLogPath
- */
-fun mergeSpawnExecs(pathA: String, pathB: String, outputBinaryLogPath: String?, outputTextLogPath: String?) {
-    val aExecCounter: Int
+fun mergeSpawnExecs(pathA: String, pathB: String): Report {
+    println("BEGINNING")
+    var mergedSpawnExecs: MutableList<MergedSpawnExec> = arrayListOf()
     var bExecCounter: Int = 0
     var cacheHits: Int = 0
     val aSpawnExecs: HashMap<String, SpawnExec> = HashMap()
-    var ins = File(pathA).inputStream()
-    while (ins.available() > 0) {
-        val spawnExec = getNextSpawnExec(ins)
-        aSpawnExecs[spawnExec.first] = spawnExec.second
-    }
-    aExecCounter = aSpawnExecs.size
-    val textLogWriter = if (!outputTextLogPath.isNullOrEmpty()) File(outputTextLogPath) else null
-    val binaryLogFile = if (!outputBinaryLogPath.isNullOrEmpty()) File(outputBinaryLogPath) else null
-
-    ins = File(pathB).inputStream()
-    while (ins.available() > 0) {
-        val spawnExec = getNextSpawnExec(ins)
+    val insFileA = File(pathA).inputStream()
+    readExecutionLog(insFileA) { aSpawnExecs[it.first] = it.second }
+    val aExecCounter = aSpawnExecs.size
+    val insFileB = File(pathB).inputStream()
+    readExecutionLog(insFileB) {
         bExecCounter++
-        if (!spawnExec.second.remoteCacheHit) {
+        if (!it.second.remoteCacheHit) {
             val aEnvVars: Map<String, String> =
-                aSpawnExecs[spawnExec.first]!!.environmentVariablesList.associate { it.name to it.value }
+                aSpawnExecs[it.first]!!.environmentVariablesList.associate { envVar -> envVar.name to envVar.value }
             val bEnvVars: Map<String, String> =
-                spawnExec.second.environmentVariablesList.associate { it.name to it.value }
+                it.second.environmentVariablesList.associate { it.name to it.value }
             val mergedEnvVars =
-                calculateDiff(aEnvVars, bEnvVars).map {
-                    ExecutionEnvironmentVariables.newBuilder().setName(it.key).setAValue(it.value.first)
-                        .setBValue(it.value.second).build()
+                calculateDiff(aEnvVars, bEnvVars).map { entry ->
+                    ExecutionEnvironmentVariables.newBuilder().setName(entry.key).setAValue(entry.value.first)
+                        .setBValue(entry.value.second).build()
                 }
-            val aInputs = aSpawnExecs[spawnExec.first]!!.inputsList.associate { it.path to it.digest }
-            val bInputs = spawnExec.second.inputsList.associate { it.path to it.digest }
-            val mergedInputs = calculateDiff(aInputs, bInputs).map {
-                ExecutionInputs.newBuilder().setPath(it.key).setAHash(it.value.first.hash)
-                    .setBHash(it.value.second.hash).build()
+            val aInputs = aSpawnExecs[it.first]!!.inputsList.associate { input -> input.path to input.digest }
+            val bInputs = it.second.inputsList.associate { input -> input.path to input.digest }
+            val mergedInputs = calculateDiff(aInputs, bInputs).map { entry ->
+                ExecutionInputs.newBuilder().setPath(entry.key).setAHash(entry.value.first.hash)
+                    .setBHash(entry.value.second.hash).build()
             }
-            var mergedSpawnExec =
-                Protos.MergedSpawnExec.newBuilder().setExecutionHash(spawnExec.first)
-                    .addAllListedOutputs(spawnExec.second.listedOutputsList)
-                    .addAllEnvVars(mergedEnvVars.toMutableList())
-                    .addAllInputs(mergedInputs.toMutableList())
-                    .build()
-            println(mergedSpawnExec.toString())
-            textLogWriter?.appendText(mergedSpawnExec.toString())
-            if (binaryLogFile != null) FileOutputStream(binaryLogFile, true).use {
-                mergedSpawnExec.writeDelimitedTo(
-                    it
-                )
-            }
+            val mergedSpawnExec = MergedSpawnExec.newBuilder().setExecutionHash(it.first)
+                .addAllListedOutputs(it.second.listedOutputsList)
+                .addAllEnvVars(mergedEnvVars.toMutableList())
+                .addAllInputs(mergedInputs.toMutableList())
+                .build()
+            mergedSpawnExecs.add(mergedSpawnExec)
         } else {
             cacheHits++
         }
     }
-    if (aExecCounter != bExecCounter) {
-        val warning = "WARNING! Number of executions isn't the same across builds so results may be not correct!"
-        println(warning)
-        textLogWriter?.appendText(warning)
+    return Report(mergedSpawnExecs, aExecCounter, cacheHits)
+}
+
+fun readExecutionLog(inputStream: InputStream, processSpawnExec: (Pair<String, SpawnExec>) -> Unit) {
+    inputStream.use { ins ->
+        while (ins.available() > 0) {
+            val spawnExec = getNextSpawnExec(ins)
+            processSpawnExec(spawnExec)
+        }
     }
-    val reportText = """====================REPORT====================
-Spawned Executions: ${aExecCounter}
-Cache Hits: ${cacheHits}
-Cache Hit Rate: ${"%.2f".format(cacheHits.toFloat() / aExecCounter.toFloat() * 100)}%
-==============================================
-    """.trimIndent()
-    println(reportText)
-    textLogWriter?.appendText(reportText)
 }
 
 /**
