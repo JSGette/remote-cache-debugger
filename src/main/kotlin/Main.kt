@@ -38,6 +38,17 @@ fun main(args: Array<String>) {
     mergeSpawnExecs(first_exec_log, second_exec_log, output_binary_log, output_text_log)
 }
 
+/**
+ * Reads execution log files in binary format and merges
+ * environment variables and inputs that are different
+ * between 2 logs
+ *
+ * @param pathA  path to first execution log
+ * @param pathB  path to second execution log
+ * @param outputBinaryLogPath  path to save output in binary format
+ * please refer to output.proto located in src/main/proto/ for more information
+ * @param outputTextLogPath
+ */
 fun mergeSpawnExecs(pathA: String, pathB: String, outputBinaryLogPath: String?, outputTextLogPath: String?) {
     val aExecCounter: Int
     var bExecCounter: Int = 0
@@ -104,17 +115,41 @@ Cache Hit Rate: ${"%.2f".format(cacheHits.toFloat() / aExecCounter.toFloat() * 1
     textLogWriter?.appendText(reportText)
 }
 
+/**
+ * Reads inputStream and returns next SpawnExec
+ * @param ins  inputStream of execution log file
+ *
+ * @return pair of execution hash and [SpawnExec]
+ * Execution Hash is calculated based on listed outputs
+ * converted into a string
+ */
 fun getNextSpawnExec(ins: InputStream): Pair<String, SpawnExec> {
     val spawnExec = SpawnExec.parseDelimitedFrom(ins)
     val execHash = calculateExecHash(spawnExec.listedOutputsList.toString())
     return Pair(execHash, spawnExec)
 }
 
+/**
+ * Calculate SHA256 of a string
+ *
+ * @param input  string to calculate SHA256 for
+ *
+ * @return calculated hash
+ */
 fun calculateExecHash(input: String): String {
     return sha256.digest(input.toByteArray())
         .fold("") { str, it -> str + "%02x".format(it) }
 }
 
+/**
+ * Compares 2 hashmaps with string keys and values of arbitrary class
+ *
+ * @param aMap  first map to compare
+ * @param bMap  second map to compare first map with
+ *
+ * @return new hashmap with string keys and pairs of values
+ * that are different between first and second maps
+ */
 fun <T> calculateDiff(aMap: Map<String, T>, bMap: Map<String, T>): Map<String, Pair<T, T>> {
     return aMap.filterKeys { bMap.containsKey(it) }.filter { (key, _) ->
         aMap[key] != bMap[key]
