@@ -52,8 +52,8 @@ fun main(args: Array<String>) {
  */
 fun generateReport(pathA: String, pathB: String): Report {
     val aSpawnExecs = FileInputStream(pathA).use { ins ->
-        readExecutionLog(ins)
-    }.toMap()
+        readExecutionLog(ins).toMap()
+    }
     return FileInputStream(pathB).use { pathBStream ->
         val bSpawnExecSequence = readExecutionLog(pathBStream)
         generateReport(aSpawnExecs, bSpawnExecSequence)
