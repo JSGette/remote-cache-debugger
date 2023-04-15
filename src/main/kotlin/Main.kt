@@ -69,16 +69,23 @@ fun mergeSpawnExecs(pathA: String, pathB: String): Protos.Report {
                 it.second.environmentVariablesList.associate { it.name to it.value }
             val mergedEnvVars =
                 calculateDiff(aEnvVars, bEnvVars).map { entry ->
-                    ExecutionEnvironmentVariables.newBuilder().setName(entry.key).setAValue(entry.value.first)
-                        .setBValue(entry.value.second).build()
+                    ExecutionEnvironmentVariables.newBuilder()
+                        .setName(entry.key)
+                        .setAValue(entry.value.first)
+                        .setBValue(entry.value.second)
+                        .build()
                 }
             val aInputs = aSpawnExecs[it.first]!!.inputsList.associate { input -> input.path to input.digest }
             val bInputs = it.second.inputsList.associate { input -> input.path to input.digest }
             val mergedInputs = calculateDiff(aInputs, bInputs).map { entry ->
-                ExecutionInputs.newBuilder().setPath(entry.key).setAHash(entry.value.first.hash)
-                    .setBHash(entry.value.second.hash).build()
+                ExecutionInputs.newBuilder()
+                    .setPath(entry.key)
+                    .setAHash(entry.value.first.hash)
+                    .setBHash(entry.value.second.hash)
+                    .build()
             }
-            val mergedSpawnExec = MergedSpawnExec.newBuilder().setExecutionHash(it.first)
+            val mergedSpawnExec = MergedSpawnExec.newBuilder()
+                .setExecutionHash(it.first)
                 .addAllListedOutputs(it.second.listedOutputsList)
                 .addAllEnvVars(mergedEnvVars.toMutableList())
                 .addAllInputs(mergedInputs.toMutableList())
@@ -135,7 +142,7 @@ fun calculateExecHash(input: String): String {
  * that are different between first and second maps
  */
 fun <T> calculateDiff(aMap: Map<String, T>, bMap: Map<String, T>): Map<String, Pair<T, T>> {
-    return aMap.filterKeys { bMap.containsKey(it) }.filter { (key, _) ->
-        aMap[key] != bMap[key]
-    }.mapValues { Pair(aMap[it.key]!!, bMap[it.key]!!) }
+    return aMap.filterKeys { bMap.containsKey(it) }
+        .filter { (key, _) -> aMap[key] != bMap[key] }
+        .mapValues { Pair(aMap[it.key]!!, bMap[it.key]!!) }
 }
