@@ -67,14 +67,13 @@ fun mergeSpawnExecs(pathA: String, pathB: String): Protos.Report {
                 aSpawnExecs[it.first]!!.environmentVariablesList.associate { envVar -> envVar.name to envVar.value }
             val bEnvVars: Map<String, String> =
                 it.second.environmentVariablesList.associate { envVar -> envVar.name to envVar.value }
-            val mergedEnvVars =
-                calculateDiff(aEnvVars, bEnvVars).map { entry ->
-                    ExecutionEnvironmentVariables.newBuilder()
-                        .setName(entry.key)
-                        .setAValue(entry.value.first)
-                        .setBValue(entry.value.second)
-                        .build()
-                }
+            val mergedEnvVars = calculateDiff(aEnvVars, bEnvVars).map { entry ->
+                ExecutionEnvironmentVariables.newBuilder()
+                    .setName(entry.key)
+                    .setAValue(entry.value.first)
+                    .setBValue(entry.value.second)
+                    .build()
+            }
             val aInputs = aSpawnExecs[it.first]!!.inputsList.associate { input -> input.path to input.digest }
             val bInputs = it.second.inputsList.associate { input -> input.path to input.digest }
             val mergedInputs = calculateDiff(aInputs, bInputs).map { entry ->
