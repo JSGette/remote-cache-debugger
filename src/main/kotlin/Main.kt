@@ -37,12 +37,12 @@ fun main(args: Array<String>) {
     )
     parser.parse(args)
     val report = mergeSpawnExecs(first_exec_log, second_exec_log)
-    report.printDiff()
-    report.printReport()
+    println(report.toString())
+//    report.printDiff()
+//    report.printReport()
 }
 
-fun mergeSpawnExecs(pathA: String, pathB: String): Report {
-    println("BEGINNING")
+fun mergeSpawnExecs(pathA: String, pathB: String): Protos.Report {
     var mergedSpawnExecs: MutableList<MergedSpawnExec> = arrayListOf()
     var bExecCounter: Int = 0
     var cacheHits: Int = 0
@@ -79,7 +79,12 @@ fun mergeSpawnExecs(pathA: String, pathB: String): Report {
             cacheHits++
         }
     }
-    return Report(mergedSpawnExecs, aExecCounter, cacheHits)
+    return Protos.Report.newBuilder()
+        .addAllMergedSpawnExecs(mergedSpawnExecs)
+        .setCacheHits(cacheHits)
+        .setTotalExecutions(aExecCounter)
+        .setCacheHitRate(cacheHits.toFloat() / aExecCounter.toFloat() * 100)
+        .build()
 }
 
 fun readExecutionLog(inputStream: InputStream, processSpawnExec: (Pair<String, SpawnExec>) -> Unit) {
