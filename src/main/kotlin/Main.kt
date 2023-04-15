@@ -106,24 +106,11 @@ fun mergeSpawnExecs(pathA: String, pathB: String): Protos.Report {
 fun readExecutionLog(inputStream: InputStream, processSpawnExec: (Pair<String, SpawnExec>) -> Unit) {
     inputStream.use { ins ->
         while (ins.available() > 0) {
-            val spawnExec = getNextSpawnExec(ins)
-            processSpawnExec(spawnExec)
+            val spawnExec = SpawnExec.parseDelimitedFrom(ins)
+            val execHash = calculateExecHash(spawnExec.listedOutputsList.toString())
+            processSpawnExec(Pair(execHash, spawnExec))
         }
     }
-}
-
-/**
- * Reads inputStream and returns next SpawnExec
- * @param ins  inputStream of execution log file
- *
- * @return pair of execution hash and [SpawnExec]
- * Execution Hash is calculated based on listed outputs
- * converted into a string
- */
-fun getNextSpawnExec(ins: InputStream): Pair<String, SpawnExec> {
-    val spawnExec = SpawnExec.parseDelimitedFrom(ins)
-    val execHash = calculateExecHash(spawnExec.listedOutputsList.toString())
-    return Pair(execHash, spawnExec)
 }
 
 /**
