@@ -101,7 +101,7 @@ fun mergeSpawnExecs(pathA: String, pathB: String): Protos.Report {
  * arbitrary post-processing function
  *
  * @param inputStream  inputStream of execution log file
- * @param processSpawnExec  arbitrary function to post-process returned pair of exec hash and SpawnExec
+ * @param processSpawnExec  arbitrary function to post-process a pair of exec hash and SpawnExec
  */
 fun readExecutionLog(inputStream: InputStream, processSpawnExec: (Pair<String, SpawnExec>) -> Unit) {
     inputStream.use { ins ->
