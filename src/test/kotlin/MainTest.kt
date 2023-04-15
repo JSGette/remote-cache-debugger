@@ -29,7 +29,7 @@ class MainTest {
     }
 
     @Test
-    fun `mergeSpawnExecs generates valid Report`() {
-
+    fun `generateReport generates valid Report`() {
+        generateReport(mapOf(), emptySequence())
     }
 }
