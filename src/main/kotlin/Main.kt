@@ -38,10 +38,19 @@ fun main(args: Array<String>) {
     parser.parse(args)
     val report = mergeSpawnExecs(first_exec_log, second_exec_log)
     println(report.toString())
-//    report.printDiff()
-//    report.printReport()
 }
 
+/**
+ * Compares 2 execution logs and merges actions
+ * that are present in both executions but
+ * have different envVars or inputs
+ *
+ * @param pathA  path to first execution log to compare
+ * @param pathB  path to second execution log to compare with
+ *
+ * @return  list of merged spawn executions, total executions, cache hits and hit rate
+ * @see [Protos.Report]
+ */
 fun mergeSpawnExecs(pathA: String, pathB: String): Protos.Report {
     var mergedSpawnExecs: MutableList<MergedSpawnExec> = arrayListOf()
     var bExecCounter: Int = 0
@@ -87,6 +96,13 @@ fun mergeSpawnExecs(pathA: String, pathB: String): Protos.Report {
         .build()
 }
 
+/**
+ * Walks through binary execution log and executes
+ * arbitrary post-processing function
+ *
+ * @param inputStream  inputStream of execution log file
+ * @param processSpawnExec  arbitrary function to post-process returned pair of exec hash and SpawnExec
+ */
 fun readExecutionLog(inputStream: InputStream, processSpawnExec: (Pair<String, SpawnExec>) -> Unit) {
     inputStream.use { ins ->
         while (ins.available() > 0) {
