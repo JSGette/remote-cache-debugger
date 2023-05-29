@@ -23,18 +23,13 @@ class MainTest {
         assertEquals(expectedDiffMap, actualDiffMap)
     }
 
-/*    @Test
-    fun `calculateDiff returns orphaned keys present in aMap but not in bMap`() {
+    @Test
+    fun `readExecutionLog correctly reads binary log file`() {
 
     }
 
     @Test
-    fun `calculateDiff returns orphaned keys present in bMap but not in aMap`() {
-
+    fun `generateReport generates valid Report`() {
+        generateReport(mapOf(), emptySequence())
     }
-
-    @Test
-    fun `mergeSpawnExecs correctly merges 2 lists of SpawnExecs`() {
-        //produce output binary log, parse it and check the correctness
-    }*/
 }

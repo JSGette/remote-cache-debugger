@@ -1,16 +1,16 @@
-import com.gette.debugger.Protos
 import com.gette.debugger.Protos.ExecutionEnvironmentVariables
 import com.gette.debugger.Protos.ExecutionInputs
+import com.gette.debugger.Protos.MergedSpawnExec
+import com.gette.debugger.Protos.Report
 import com.google.devtools.build.lib.exec.Protos.SpawnExec
 import kotlinx.cli.ArgParser
 import kotlinx.cli.ArgType
 import kotlinx.cli.required
-import java.io.File
-import java.io.FileOutputStream
+import java.io.FileInputStream
 import java.io.InputStream
 import java.security.MessageDigest
 
-val sha256 = MessageDigest.getInstance("SHA-256")
+val sha256: MessageDigest = MessageDigest.getInstance("SHA-256")
 
 fun main(args: Array<String>) {
     val parser = ArgParser("debugger")
@@ -35,99 +35,94 @@ fun main(args: Array<String>) {
         description = "Path to save output log in text format"
     )
     parser.parse(args)
-    mergeSpawnExecs(first_exec_log, second_exec_log, output_binary_log, output_text_log)
+    val report = generateReport(first_exec_log, second_exec_log)
+    println(report.toString())
 }
 
 /**
- * Reads execution log files in binary format and merges
- * environment variables and inputs that are different
- * between 2 logs
+ * Compares 2 execution logs and merges actions
+ * that are present in both executions but
+ * have different envVars or inputs
  *
- * @param pathA  path to first execution log
- * @param pathB  path to second execution log
- * @param outputBinaryLogPath  path to save output in binary format
- * please refer to output.proto located in src/main/proto/ for more information
- * @param outputTextLogPath
+ * @param pathA  path to first execution log to compare
+ * @param pathB  path to second execution log to compare with
+ *
+ * @return  list of merged spawn executions, total executions, cache hits and hit rate
+ * @see [Report]
  */
-fun mergeSpawnExecs(pathA: String, pathB: String, outputBinaryLogPath: String?, outputTextLogPath: String?) {
-    val aExecCounter: Int
-    var bExecCounter: Int = 0
-    var cacheHits: Int = 0
-    val aSpawnExecs: HashMap<String, SpawnExec> = HashMap()
-    var ins = File(pathA).inputStream()
-    while (ins.available() > 0) {
-        val spawnExec = getNextSpawnExec(ins)
-        aSpawnExecs[spawnExec.first] = spawnExec.second
+fun generateReport(pathA: String, pathB: String): Report {
+    val aSpawnExecs = FileInputStream(pathA).use { ins ->
+        readExecutionLog(ins).toMap()
     }
-    aExecCounter = aSpawnExecs.size
-    val textLogWriter = if (!outputTextLogPath.isNullOrEmpty()) File(outputTextLogPath) else null
-    val binaryLogFile = if (!outputBinaryLogPath.isNullOrEmpty()) File(outputBinaryLogPath) else null
-
-    ins = File(pathB).inputStream()
-    while (ins.available() > 0) {
-        val spawnExec = getNextSpawnExec(ins)
-        bExecCounter++
-        if (!spawnExec.second.remoteCacheHit) {
-            val aEnvVars: Map<String, String> =
-                aSpawnExecs[spawnExec.first]!!.environmentVariablesList.associate { it.name to it.value }
-            val bEnvVars: Map<String, String> =
-                spawnExec.second.environmentVariablesList.associate { it.name to it.value }
-            val mergedEnvVars =
-                calculateDiff(aEnvVars, bEnvVars).map {
-                    ExecutionEnvironmentVariables.newBuilder().setName(it.key).setAValue(it.value.first)
-                        .setBValue(it.value.second).build()
-                }
-            val aInputs = aSpawnExecs[spawnExec.first]!!.inputsList.associate { it.path to it.digest }
-            val bInputs = spawnExec.second.inputsList.associate { it.path to it.digest }
-            val mergedInputs = calculateDiff(aInputs, bInputs).map {
-                ExecutionInputs.newBuilder().setPath(it.key).setAHash(it.value.first.hash)
-                    .setBHash(it.value.second.hash).build()
-            }
-            var mergedSpawnExec =
-                Protos.MergedSpawnExec.newBuilder().setExecutionHash(spawnExec.first)
-                    .addAllListedOutputs(spawnExec.second.listedOutputsList)
-                    .addAllEnvVars(mergedEnvVars.toMutableList())
-                    .addAllInputs(mergedInputs.toMutableList())
-                    .build()
-            println(mergedSpawnExec.toString())
-            textLogWriter?.appendText(mergedSpawnExec.toString())
-            if (binaryLogFile != null) FileOutputStream(binaryLogFile, true).use {
-                mergedSpawnExec.writeDelimitedTo(
-                    it
-                )
-            }
-        } else {
-            cacheHits++
-        }
+    return FileInputStream(pathB).use { pathBStream ->
+        val bSpawnExecSequence = readExecutionLog(pathBStream)
+        generateReport(aSpawnExecs, bSpawnExecSequence)
     }
-    if (aExecCounter != bExecCounter) {
-        val warning = "WARNING! Number of executions isn't the same across builds so results may be not correct!"
-        println(warning)
-        textLogWriter?.appendText(warning)
-    }
-    val reportText = """====================REPORT====================
-Spawned Executions: ${aExecCounter}
-Cache Hits: ${cacheHits}
-Cache Hit Rate: ${"%.2f".format(cacheHits.toFloat() / aExecCounter.toFloat() * 100)}%
-==============================================
-    """.trimIndent()
-    println(reportText)
-    textLogWriter?.appendText(reportText)
 }
 
 /**
- * Reads inputStream and returns next SpawnExec
+ * Creates a sequence of [SpawnExec] from the [InputStream]
+ *
  * @param ins  inputStream of execution log file
- *
- * @return pair of execution hash and [SpawnExec]
- * Execution Hash is calculated based on listed outputs
- * converted into a string
  */
-fun getNextSpawnExec(ins: InputStream): Pair<String, SpawnExec> {
-    val spawnExec = SpawnExec.parseDelimitedFrom(ins)
-    val execHash = calculateExecHash(spawnExec.listedOutputsList.toString())
-    return Pair(execHash, spawnExec)
+fun readExecutionLog(ins: InputStream): Sequence<Pair<String, SpawnExec>> = generateSequence {
+    if (ins.available() > 0) {
+        val spawnExec = SpawnExec.parseDelimitedFrom(ins)
+        val execHash = calculateExecHash(spawnExec.listedOutputsList.toString())
+        execHash to spawnExec
+    } else {
+        null
+    }
 }
+
+fun generateReport(aSpawnExecs: Map<String, SpawnExec>, bSpawnExecSequence: Sequence<Pair<String, SpawnExec>>): Report {
+    val mergedSpawnExecs: MutableList<MergedSpawnExec> = arrayListOf()
+    var cacheHits = 0
+
+    bSpawnExecSequence.forEach { (bHash, bExec) ->
+        if (bExec.remoteCacheHit) {
+            cacheHits++
+            return@forEach
+        }
+        val aExec = aSpawnExecs[bHash] ?: error("aSpawnExecs does not have the exec with hash '$bHash'")
+        val aEnvVars: Map<String, String> = aExec.associateEnvVars()
+        val bEnvVars: Map<String, String> = bExec.associateEnvVars()
+        val mergedEnvVars = calculateDiff(aEnvVars, bEnvVars).map { (key, value) ->
+            ExecutionEnvironmentVariables.newBuilder()
+                .setName(key)
+                .setAValue(value.first)
+                .setBValue(value.second)
+                .build()
+        }
+        val aInputs = aExec.associateInputs()
+        val bInputs = bExec.associateInputs()
+        val mergedInputs = calculateDiff(aInputs, bInputs).map { (key, value) ->
+            ExecutionInputs.newBuilder()
+                .setPath(key)
+                .setAHash(value.first.hash)
+                .setBHash(value.second.hash)
+                .build()
+        }
+        val mergedSpawnExec = MergedSpawnExec.newBuilder()
+            .setExecutionHash(bHash)
+            .addAllListedOutputs(bExec.listedOutputsList)
+            .addAllEnvVars(mergedEnvVars)
+            .addAllInputs(mergedInputs)
+            .build()
+        mergedSpawnExecs.add(mergedSpawnExec)
+    }
+
+    return Report.newBuilder()
+        .addAllMergedSpawnExecs(mergedSpawnExecs)
+        .setCacheHits(cacheHits)
+        .setTotalExecutions(aSpawnExecs.size)
+        .setCacheHitRate(cacheHits.toFloat() / aSpawnExecs.size.toFloat() * 100)
+        .build()
+}
+
+fun SpawnExec.associateEnvVars() = environmentVariablesList.associate { it.name to it.value }
+
+fun SpawnExec.associateInputs() = inputsList.associate { it.path to it.digest }
 
 /**
  * Calculate SHA256 of a string
@@ -151,7 +146,7 @@ fun calculateExecHash(input: String): String {
  * that are different between first and second maps
  */
 fun <T> calculateDiff(aMap: Map<String, T>, bMap: Map<String, T>): Map<String, Pair<T, T>> {
-    return aMap.filterKeys { bMap.containsKey(it) }.filter { (key, _) ->
-        aMap[key] != bMap[key]
-    }.mapValues { Pair(aMap[it.key]!!, bMap[it.key]!!) }
+    return aMap.filterKeys { bMap.containsKey(it) }
+        .filter { (key, _) -> aMap[key] != bMap[key] }
+        .mapValues { Pair(aMap[it.key]!!, bMap[it.key]!!) }
 }

@@ -45,3 +45,10 @@ message MergedSpawnExec {
 
   repeated ExecutionInputs inputs = 4;
 }
+
+message Report {
+  repeated MergedSpawnExec merged_spawn_execs = 1;
+  int32 total_executions = 2;
+  int32 cache_hits = 3;
+  float cache_hit_rate = 4;
+}
